@@ -110,7 +110,7 @@ if __name__ == "__main__":
     parser.add_argument("--p_ch", "-pch", type=int, default=64)
     parser.add_argument("--n_ch", "-nch", type=int, default=32)
     parser.add_argument("--orth", "-or", action="store_true", default=False)
-    parser.add_argument("--gp_bias", "-gp_b", action="store_true", default=True)
+    parser.add_argument("--gp_bias", "-gp_b", action="store_true", default=False)
 
     parser.add_argument("--color_random", "-cro", action="store_false", default=True)
 

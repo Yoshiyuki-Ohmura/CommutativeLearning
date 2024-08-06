@@ -32,7 +32,7 @@ class Gn_model(nn.Module):
         self.nch1 = n_ch
 
         self.l1 = injL.iLinear_mod( sum(label_dim),   orth=orth)
-        self.l2 = injL.iLinear( n_ch*4, n_ch*8*4,     orth=orth)
+        self.l2 = injL.iLinear( 2*sum(label_dim), n_ch*8*4,     orth=orth)
         self.l3 = injL.iLinear( n_ch*8*4, n_ch*8*4*4, orth=orth)
 
         self.convt1 = injC.iConvTranspose2d( ( n_ch)*8, (n_ch)*4, 4, 2, 1)# n_ch1*8,4,4 -> n_ch1*4,8,8

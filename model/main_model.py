@@ -133,6 +133,12 @@ class BisectionTrans:
             x = x.to(self.device)
             y = y.to(self.device)
 
+            if self.color_random:
+                rand_x=torch.rand(x.size(dim=0), 3,1,1, device=self.device)*80./100. + 0.2
+                rand_y=torch.rand(y.size(dim=0), 3,1,1, device=self.device)*80./100. + 0.2
+                x = x*rand_x
+                y = y*rand_y
+
             log_dict=self.eval_step(x,y)
             cnt = cnt + 1
             for k, v in log_dict["eval"].items():
