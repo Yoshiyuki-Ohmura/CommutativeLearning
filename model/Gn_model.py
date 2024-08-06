@@ -39,7 +39,7 @@ class Gn_model(nn.Module):
         self.convt2 = injC.iConvTranspose2d( ( n_ch)*4, (n_ch)*2, 4, 2, 1) # n_ch1*4,8,8 -> n_ch1*2,16,16
         self.convt3 = injC.iConvTranspose2d( ( n_ch)*2, (n_ch),   4, 2, 1) # n_ch1*4,8,8 -> n_ch1*2,16,16
         #self.conv = injC.ConvTranspose2d_weight_norm(n_ch, n_ch, 1, 1, 0)
-        self.conv = torch.nn.ConvTranspose2d(n_ch, 3, 1, 1, 0, bias=False)
+        self.conv = torch.nn.ConvTranspose2d(n_ch, n_ch, 1, 1, 0, bias=False)
         self.n_ch1 = n_ch
 
     def forward(self, x:Tensor) :
@@ -54,5 +54,6 @@ class Gn_model(nn.Module):
         out = self.relu( self.convt3(out) )
         self.preout =out 
         out = self.conv( out )
-        return out
+        ret, n = torch.split(out, [3, self.n_ch1-3], dim=1)
+        return ret, n 
 

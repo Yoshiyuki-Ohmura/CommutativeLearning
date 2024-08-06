@@ -42,7 +42,7 @@ def main(args):
     if args.seed is not None:
         torch_fix_seed(args.seed)
 
-    model = init_modelInj(args.label_dim, p_ch=args.p_ch, n_ch=args.n_ch, orth=args.orth, gp_bias=args.gp_bias)
+    model = init_modelInj(args.label_dim, p_ch=args.p_ch, n_ch=args.n_ch, orth=args.orth, add_ch=args.add_ch, gp_bias=args.gp_bias)
     model.log_config(args.logdir)
 
     model.Gn_config(orth=args.orth)
@@ -79,6 +79,7 @@ def main(args):
         aux_rate =args.aux_rate,
         batch_size = args.batch_size,
         color_random=args.color_random,
+        add_ch = args.add_ch
         )
            
     dataset = NPZImagesDataset("color_font_all.npz")
@@ -96,6 +97,7 @@ if __name__ == "__main__":
     parser.add_argument("--label-dim", "-ldim",type=int, nargs="*", default=32)
     parser.add_argument("--p_ch", "-pch", type=int, default=64)
     parser.add_argument("--n_ch", "-nch", type=int, default=32)
+    parser.add_argument("--add_ch", "-addc", action="store_true", default=False)
 
     # Important parameters
     parser.add_argument("--learning-rate", "-lr", type=float, default=1e-4)

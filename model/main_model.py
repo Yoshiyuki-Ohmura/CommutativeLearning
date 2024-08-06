@@ -33,8 +33,10 @@ class BisectionTrans:
 
     def config(self,
                color_random:Optional[bool]=True,
+               add_ch: Optional[bool] = False,
                ):
         self.color_random=color_random
+        self.add_ch = add_ch
 
     def eval_config(self,
                     batch_size:Optional[int]=None):
@@ -52,6 +54,7 @@ class BisectionTrans:
                      aux_rate: Optional[float]=0., 
                      batch_size: Optional [int ] =None,
                      color_random: Optional[ bool ] = True,
+                     add_ch: Optional[bool] = False,
                      ):
         self.optimizer = optimizer
         self.commute = commute
@@ -60,7 +63,7 @@ class BisectionTrans:
         self.batch_size = batch_size
         pattern_loss_fn = nn.MSELoss()
         self.pattern_loss_fn = pattern_loss_fn
-        self.config(color_random)
+        self.config(color_random, add_ch)
 
     def log_config(self, logdir: Optional[str] = None):
         """Set members related to logging."""
@@ -166,22 +169,36 @@ class BisectionTrans:
     def eval_step(self, x: torch.Tensor, y: torch.Tensor) ->dict: 
         
         batch_size = x.size(dim=0)
-        _latent_x0, _latent_x1 = self.Gp (x)
-        _latent_y0, _latent_y1 = self.Gp (y)
-        
+
+        if self.add_ch:
+            z = torch.zeros([batch_size, self.Gp.in_ch-3, 32, 32], device=x.device)
+            _x = torch.cat((x,z), dim=1)
+            _y = torch.cat((y,z), dim=1)
+            _latent_x0, _latent_x1 = self.Gp (_x)
+            _latent_y0, _latent_y1 = self.Gp (_y)
+        else:
+            _latent_x0, _latent_x1 = self.Gp (x)
+            _latent_y0, _latent_y1 = self.Gp (y)
+
         with torch.no_grad():
             _input_to_F0_x = torch.cat((_latent_y0, _latent_x1), dim=1)    # (lambda0_x,0)    
-            _pattern_F0x = self.Gn(_input_to_F0_x)
+            _pattern_F0x, N_F0x = self.Gn(_input_to_F0_x)
             _input_to_F0_y = torch.cat((_latent_x0, _latent_y1), dim=1)  # (lambda0_y, 0) 
-            _pattern_F1x = self.Gn(_input_to_F0_y)
+            _pattern_F1x, N_F1x = self.Gn(_input_to_F0_y)
 
-            _latent_F0x0, _latent_F0x1 = self.Gp(_pattern_F0x)
-            _latent_F1x0, _latent_F1x1 = self.Gp(_pattern_F1x)
+            if self.add_ch:
+                pattern_F0x = torch.cat((_pattern_F0x, N_F0x), dim=1)
+                pattern_F1x = torch.cat((_pattern_F1x, N_F1x), dim=1)
+                _latent_F0x0, _latent_F0x1 = self.Gp(pattern_F0x)
+                _latent_F1x0, _latent_F1x1 = self.Gp(pattern_F1x)
+            else:
+                _latent_F0x0, _latent_F0x1 = self.Gp(_pattern_F0x)
+                _latent_F1x0, _latent_F1x1 = self.Gp(_pattern_F1x)
 
             _input_to_F1_F0x = torch.cat((_latent_F0x0, _latent_y1), dim=1)
-            _pattern_F0F1x  = self.Gn(_input_to_F1_F0x)
+            _pattern_F0F1x, N_F0F1x  = self.Gn(_input_to_F1_F0x)
             _input_to_F0_F1x = torch.cat((_latent_y0, _latent_F1x1), dim=1)
-            _pattern_F1F0x  = self.Gn(_input_to_F0_F1x)
+            _pattern_F1F0x, N_F1F0x  = self.Gn(_input_to_F0_F1x)
 
             latent_loss0 = self.new_latent_loss_fn(_latent_x0, _latent_y0, _latent_F0x0)
             latent_loss1 = self.new_latent_loss_fn(_latent_x1, _latent_y1, _latent_F1x1)
@@ -238,7 +255,13 @@ class BisectionTrans:
         _x = torch.where( x.sum(dim=1,keepdim=True)>0.1 ,x, torch.ones_like(x))
         #_x = torch.cat((_x,alpha), dim=1)
 
-        _latent_x0, _latent_x1 = self.Gp(x)
+        batch_size = x.size(dim=0)
+        if self.add_ch:
+            z = torch.zeros([batch_size, self.Gp.in_ch-3, 32,32], device=x.device)
+            _x2 = torch.cat((x, z), dim=1)
+            _latent_x0, _latent_x1 = self.Gp (_x2)
+        else:
+            _latent_x0, _latent_x1 = self.Gp(x)
 
         return {
             "embed": {
@@ -355,25 +378,38 @@ class BisectionTrans:
     def train_step(self, x: torch.Tensor, y: torch.Tensor) -> dict:
 
         batch_size = x.size(dim=0)
-        _latent_x0, _latent_x1 = self.Gp (x)
-        _latent_y0, _latent_y1 = self.Gp (y)
+        if self.add_ch:
+            zero = torch.zeros([batch_size, self.Gp.in_ch-3, 32,32], device=x.device)
+            _x = torch.cat((x, zero), dim=1)
+            _y = torch.cat((y, zero), dim=1)
+            _latent_x0, _latent_x1 = self.Gp (_x)
+            _latent_y0, _latent_y1 = self.Gp (_y)
+        else:
+            _latent_x0, _latent_x1 = self.Gp (x)
+            _latent_y0, _latent_y1 = self.Gp (y)
 
         # F0*X
-        _pattern_F0x = self.Gn0(_latent_y0, _latent_x1)
+        _pattern_F0x, N_F0x = self.Gn0(_latent_y0, _latent_x1)
 
         # F0*Y
-        _pattern_F1x = self.Gn0(_latent_x0, _latent_y1)
+        _pattern_F1x, N_F1x = self.Gn0(_latent_x0, _latent_y1)
 
-        _latent_F0x0 , _latent_F0x1  = self.Gp(_pattern_F0x)
-        _latent_F1x0 , _latent_F1x1  = self.Gp(_pattern_F1x)
+        if self.add_ch:
+            pattern_F0x =torch.cat((_pattern_F0x, N_F0x), dim=1)
+            pattern_F1x =torch.cat((_pattern_F1x, N_F1x), dim=1)
+            _latent_F0x0 , _latent_F0x1  = self.Gp(pattern_F0x)
+            _latent_F1x0 , _latent_F1x1  = self.Gp(pattern_F1x)
+        else:
+            _latent_F0x0 , _latent_F0x1  = self.Gp(_pattern_F0x)
+            _latent_F1x0 , _latent_F1x1  = self.Gp(_pattern_F1x)
 
         # F1*F0*X
-        _pattern_F1F0x = self.Gn0(_latent_F0x0, _latent_y1)
+        _pattern_F1F0x, N_F1F0x = self.Gn0(_latent_F0x0, _latent_y1)
 
         # F0*F1*X
-        _pattern_F0F1x = self.Gn0(_latent_y0, _latent_F1x1)
+        _pattern_F0F1x, N_F0F1x = self.Gn0(_latent_y0, _latent_F1x1)
 
-        _pattern_y = self.Gn0(_latent_y0, _latent_y1)
+        _pattern_y, N_y = self.Gn0(_latent_y0, _latent_y1)
 
         with torch.no_grad():
             latent_loss_F0x0 = self.latent_loss_fn(_latent_F0x0, _latent_y0)

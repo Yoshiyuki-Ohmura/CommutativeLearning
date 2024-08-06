@@ -11,7 +11,7 @@ from model.main_model import BisectionTrans
 from model import Gn_model as nIJ
 from model import Gp_model as Gpm
 
-def init_modelInj(label_dim: Iterable[int], p_ch:int, n_ch:int, 
+def init_modelInj(label_dim: Iterable[int], p_ch:int, n_ch:int, add_ch: Optional[bool]=False,
                   orth:Optional[bool]=True, gp_bias:Optional[bool]=False) -> BisectionTrans:
     assert len(label_dim) == 2
 
@@ -20,9 +20,11 @@ def init_modelInj(label_dim: Iterable[int], p_ch:int, n_ch:int,
 
     Gn = nIJ.Gn_model(label_dim, n_ch=n_ch,  orth=orth)
 
-    Gp = Gpm.Gp_model(label_dim, p_ch=p_ch, in_ch=3, gp_bias=gp_bias)
+    if add_ch:
+        Gp = Gpm.Gp_model(label_dim, p_ch=p_ch, in_ch=Gn.n_ch1, gp_bias=gp_bias)
+    else:
+        Gp = Gpm.Gp_model(label_dim, p_ch=p_ch, in_ch=3, gp_bias=gp_bias)
 
-    #Gn.para_reset()
     model = BisectionTrans(label_dim, Gp, Gn)
     return model
 
